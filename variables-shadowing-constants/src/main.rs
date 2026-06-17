@@ -1,9 +1,9 @@
 fn main() {
-    //    let mut x: i32 = 10;
+    let mut x = 5;
+    println!("The value of x is {}", x);
 
-    //    print!("The value of x is {}", x);
-
-    //    x = 15;
+    x = 10;
+    println!("The value of x is {}", x);
 
     //     print!("The value of x is {}", x);
 
@@ -23,9 +23,9 @@ fn main() {
         const MAX_POINTS:i32 = 100_000;
         println!("The value of x is {}", MAX_POINTS);
 
-        let x;
+        // let x;
         // println!("The value of x is {}", x);
 
-    x= 4;
-        println!("The value of x is {}", x);
+        // x= 4;
+        // println!("The value of x is {}", x);
 }

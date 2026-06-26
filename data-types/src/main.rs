@@ -17,5 +17,39 @@ fn main() {
 
     let tup: (i32, f64, char) = (500, 6.753, 'y');
 
-    println!("{:?}", tup);
+    println!("{:?}", tup.1);
+
+    let arr = [1, 2, 3, 4, 5];
+
+    println!("{:#?}", arr[1]);
+
+
+    // STRUCTS
+
+    struct Person {
+        name: String,
+        age: u8
+    }
+
+    let person = Person {
+        name: "JOHN".to_string(),
+        age: 28
+    };
+
+    println!("{:#?}", person.name);
+
+    // ENUMS
+    enum TrafficLight {
+        Red,
+        Yellow,
+        Green,
+    }
+
+    let light = TrafficLight::Green;
+
+    match light {
+        TrafficLight::Red => println!("Stop!"),
+        TrafficLight::Yellow => println!("Get ready!"),
+        TrafficLight::Green => println!("Go!"),
+    }
 }

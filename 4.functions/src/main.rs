@@ -7,7 +7,7 @@ fn sum (num_1: i32, num_2: i32) -> i32 {
 }
 
 fn sum_diff (num_1: i32, num_2: i32) -> (i32, i32) {
-(num_1+ num_2, num_1 - num_2)
+    (num_1+ num_2, num_1 - num_2)
 }
 
 fn main() {

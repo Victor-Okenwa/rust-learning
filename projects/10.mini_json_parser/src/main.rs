@@ -52,9 +52,9 @@ enum Token {
 
 #[derive(Debug)]
 enum JsonError {
-    UnexpectedChar(char, usize),   // bad character + byte position
-    UnexpectedEnd, // input ended too soon
-    InvalidNumber(String) // e.g. "12.34.56"
+    UnexpectedChar(char, usize), // bad character + byte position
+    UnexpectedEnd,               // input ended too soon
+    InvalidNumber(String),       // e.g. "12.34.56"
 }
 
 // ============================================================
@@ -73,21 +73,48 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
     while let Some(&(i, c)) = chars.peek() {
         match c {
             // ---------- Single-character punctuation ----------
-            '{' => { chars.next(); tokens.push(Token::LeftBrace); }
-            '}' => { chars.next(); tokens.push(Token::RightBrace); }
-            '[' => { chars.next(); tokens.push(Token::LeftBracket); }
-            ']' => { chars.next(); tokens.push(Token::RightBracket); }
-            ':' => { chars.next(); tokens.push(Token::Colon); }
-            ',' => { chars.next(); tokens.push(Token::Comma); }
+            '{' => {
+                chars.next();
+                tokens.push(Token::LeftBrace);
+            }
+            '}' => {
+                chars.next();
+                tokens.push(Token::RightBrace);
+            }
+            '[' => {
+                chars.next();
+                tokens.push(Token::LeftBracket);
+            }
+            ']' => {
+                chars.next();
+                tokens.push(Token::RightBracket);
+            }
+            ':' => {
+                chars.next();
+                tokens.push(Token::Colon);
+            }
+            ',' => {
+                chars.next();
+                tokens.push(Token::Comma);
+            }
 
             // ---------- Whitespace: skip it ----------
-            ' ' | '\n' | '\t' | '\r' => { chars.next(); }
+            ' ' | '\n' | '\t' | '\r' => {
+                chars.next();
+            }
 
             // ---------- String literal: "..." ----------
-              '"' => {
+            '"' => {
                 chars.next();
 
-                
+                let mut s = String::new();
+
+                loop {
+                    match chars.next() {
+                        // Closing quote → we're done with this string
+                        Some((_, '"')) => break,
+                    }
+                }
             }
 
             // ---------- Number: 0-9 or '-' ----------
@@ -101,16 +128,13 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
             }
 
             // ---------- Anything else is an error ----------
-            _ => return Err(JsonError::UnexpectedChar(c, i))
+            _ => return Err(JsonError::UnexpectedChar(c, i)),
         }
     }
 
     tokens.push(Token::Eof);
     Ok(tokens)
 }
-
-
-
 
 fn main() {
     let json = JsonValue::Object(HashMap::from([
@@ -126,7 +150,7 @@ fn main() {
     let sample_error = JsonError::UnexpectedChar('@', 5);
     println!("{:#?}", sample_error);
 
-     let result = tokenize("{ }");
+    let result = tokenize("{ }");
     println!("{:#?}", result);
 
     let result2 = tokenize("{ @");

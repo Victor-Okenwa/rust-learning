@@ -1,0 +1,24 @@
+[package]
+name = "rust-hello-world"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "rust-hello-world"
+path = "main.rs"
+
+[workspace]
+resolver = "3"
+members = [
+    "1.hello_world",
+    "2.data-types",
+    "3.variables-shadowing-constants",
+    "4.functions",
+    "6.move_semantics_ownership",
+    "7.borrowing",
+    "8.slices_borrowing_&strings",
+    "9.structs_enums",
+    "10.derives",
+    "projects/5.temp_converter",
+    "projects/10.mini_json_parser",
+]

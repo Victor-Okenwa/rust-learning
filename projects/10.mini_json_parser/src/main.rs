@@ -107,14 +107,37 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
             '"' => {
                 chars.next();
 
-                let mut s = String::new();
+                let mut s: String = String::new();
 
                 loop {
                     match chars.next() {
                         // Closing quote → we're done with this string
                         Some((_, '"')) => break,
+
+                        // Escape sequence — the next char tells us what to emit
+                        Some((_, '\\')) => {
+                            match chars.next() {
+                                Some((_, '"')) => s.push('"'),
+                                Some((_, '\\')) => s.push('\\'),
+                                Some((_, '/')) => s.push('/'),
+                                Some((_, 'n')) => s.push('\n'),
+                                Some((_, 'r')) => s.push('\r'),
+                                Some((_, 't')) => s.push('\t'),
+                                Some((_, 'b')) => s.push('\u{0008}'), // backspace
+                                Some((_, 'f')) => s.push('\u{000C}'), // form feed
+                                Some((j, c)) => return Err(JsonError::UnexpectedChar(c, j)),
+                                None => return Err(JsonError::UnexpectedEnd),
+                            }
+                        }
+                        // Any other character → just append it
+                        Some((_, c)) => s.push(c),
+
+                        // Ran out of input before finding the closing quote
+                        None => return Err(JsonError::UnexpectedEnd),
                     }
                 }
+
+                tokens.push(Token::String(s));
             }
 
             // ---------- Number: 0-9 or '-' ----------
@@ -153,9 +176,20 @@ fn main() {
     let result = tokenize("{ }");
     println!("{:#?}", result);
 
-    let result2 = tokenize("{ @");
-    println!("{:#?}", result2);
+    // let result2 = tokenize("{ @");
+    // println!("{:#?}", result2);
 
-    let result3 = tokenize("0");
-    println!("{:#?}", result3);
+    println!("tokenize(\"hello\"): {:#?}", tokenize("\"hello\""));
+    println!(
+        "tokenize(\"hello\\nworld\"): {:#?}",
+        tokenize("\"hello\\nworld\"")
+    );
+    println!(
+        "tokenize(\"quote: \\\"hi\\\"\"): {:#?}",
+        tokenize("\"quote: \\\"hi\\\"\"")
+    );
+    println!(
+        "tokenize(\"unterminated\"): {:#?}",
+        tokenize("\"unterminated")
+    );
 }

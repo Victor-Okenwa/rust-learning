@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // JSON has exactly six kinds of values. Each variant of this
 // enum represents one kind, and carries the data that kind holds.
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum JsonValue {
     Null,
     Boolean(bool),
@@ -26,7 +26,7 @@ enum JsonValue {
 // have it, but it makes parsing cleaner — the parser can always
 // peek at the next token, even at the end.
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 enum Token {
     LeftBrace,
     RightBrace,
@@ -50,7 +50,7 @@ enum Token {
 // `usize` is Rust's default integer type for indices — it's
 // unsigned and sized to match your platform's pointer width.
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum JsonError {
     UnexpectedChar(char, usize), // bad character + byte position
     UnexpectedEnd,               // input ended too soon
@@ -171,7 +171,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                             chars.next();
 
                             // Optional + or - after the exponent
-                            if let Some((_, sign)) = chars.next() {
+                            if let Some(&(_, sign)) = chars.peek() {
                                 if sign == '+' || sign == '-' {
                                     num_str.push(sign);
                                     chars.next();
@@ -217,6 +217,42 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
 
     tokens.push(Token::Eof);
     Ok(tokens)
+}
+
+// ============================================================
+// Parser: walks through tokens and builds a JsonValue
+// ============================================================
+// It OWNS the tokens (moved in from the tokenizer). The `pos`
+// field tracks where we are in the list.
+
+struct Parser {
+    tokens: Vec<Token>,
+    pos: usize,
+}
+
+impl Parser {
+    // Constructor — like `new` in other languages
+    fn new() -> Self {
+        Parser {
+            tokens: vec![],
+            pos: 0,
+        }
+    }
+
+    // Look at the current token without advancing
+    fn peek(&self) -> &Token {
+        &self.tokens[self.pos]
+    }
+
+    // Return the current token AND move forward
+    fn advance(&mut self) -> Token {
+        let tok = self.tokens[self.pos].clone();
+        self.pos += 1;
+        tok
+    }
+
+    // Consume the current token if it matches, else error
+    
 }
 
 fn main() {
@@ -291,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_brackets {
+    fn empty_brackets() {
         assert_eq!(
             tokenize("[]"),
             Ok(vec![Token::LeftBracket, Token::RightBracket, Token::Eof])
@@ -303,12 +339,17 @@ mod tests {
         assert_eq!(
             tokenize(":, ,:"),
             Ok(vec![
-                Token::Colon, Token::Comma, Token::Comma, Token::Colon, Token::Eof
+                Token::Colon,
+                Token::Comma,
+                Token::Comma,
+                Token::Colon,
+                Token::Eof
             ])
         );
     }
 
     // ---------- Whitespace ----------
+    #[test]
     fn whitespace_is_skipped() {
         assert_eq!(
             tokenize("      {  \n\t  }      "),
@@ -318,7 +359,7 @@ mod tests {
 
     // ---------- Strings ----------
     #[test]
-    fn simple_string() { 
+    fn simple_string() {
         assert_eq!(
             tokenize("\"hello\""),
             Ok(vec![Token::String("hello".to_string()), Token::Eof])
@@ -361,34 +402,22 @@ mod tests {
 
     #[test]
     fn integer() {
-        assert_eq!(
-            tokenize("42"),
-            Ok(vec![Token::Number(42.0), Token::Eof])
-        );
+        assert_eq!(tokenize("42"), Ok(vec![Token::Number(42.0), Token::Eof]));
     }
 
     #[test]
     fn negative_integer() {
-        assert_eq!(
-            tokenize("-17"),
-            Ok(vec![Token::Number(-17.0), Token::Eof])
-        );
+        assert_eq!(tokenize("-17"), Ok(vec![Token::Number(-17.0), Token::Eof]));
     }
 
     #[test]
     fn decimal() {
-        assert_eq!(
-            tokenize("3.14"),
-            Ok(vec![Token::Number(3.14), Token::Eof])
-        );
+        assert_eq!(tokenize("3.14"), Ok(vec![Token::Number(3.14), Token::Eof]));
     }
 
     #[test]
     fn exponent() {
-        assert_eq!(
-            tokenize("1e10"),
-            Ok(vec![Token::Number(1e10), Token::Eof])
-        );
+        assert_eq!(tokenize("1e10"), Ok(vec![Token::Number(1e10), Token::Eof]));
     }
 
     #[test]
@@ -403,26 +432,17 @@ mod tests {
 
     #[test]
     fn keyword_true() {
-        assert_eq!(
-            tokenize("true"),
-            Ok(vec![Token::Bool(true), Token::Eof])
-        );
+        assert_eq!(tokenize("true"), Ok(vec![Token::Bool(true), Token::Eof]));
     }
 
     #[test]
     fn keyword_false() {
-        assert_eq!(
-            tokenize("false"),
-            Ok(vec![Token::Bool(false), Token::Eof])
-        );
+        assert_eq!(tokenize("false"), Ok(vec![Token::Bool(false), Token::Eof]));
     }
 
     #[test]
     fn keyword_null() {
-        assert_eq!(
-            tokenize("null"),
-            Ok(vec![Token::Null, Token::Eof])
-        );
+        assert_eq!(tokenize("null"), Ok(vec![Token::Null, Token::Eof]));
     }
 
     #[test]
@@ -437,10 +457,7 @@ mod tests {
 
     #[test]
     fn unexpected_char() {
-        assert_eq!(
-            tokenize("@"),
-            Err(JsonError::UnexpectedChar('@', 0))
-        );
+        assert_eq!(tokenize("@"), Err(JsonError::UnexpectedChar('@', 0)));
     }
 
     // ---------- A combined case ----------

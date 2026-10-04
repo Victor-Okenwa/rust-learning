@@ -18,7 +18,7 @@ members = [
     "7.borrowing",
     "8.slices_borrowing_&strings",
     "9.structs_enums",
-    "10.derives",
+    "10.derives_&_loops",
     "projects/5.temp_converter",
     "projects/10.mini_json_parser",
 ]

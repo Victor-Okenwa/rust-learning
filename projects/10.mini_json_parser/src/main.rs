@@ -57,6 +57,8 @@ enum JsonError {
     InvalidNumber(String),       // e.g. "12.34.56"
     InvalidKeyword(String),      // e.g. "truee"
     UnexpectedToken { expected: Token, found: Token }, // e.g. expected LeftBrace, got RightBrace
+    ExpectedValue(Token),        // expected a value, found this token
+    TrailingTokens(Token),       // input continued after the value ended
 }
 
 // ============================================================
@@ -233,11 +235,8 @@ struct Parser {
 
 impl Parser {
     // Constructor — like `new` in other languages
-    fn new() -> Self {
-        Parser {
-            tokens: vec![],
-            pos: 0,
-        }
+    fn new(tokens: Vec<Token>) -> Self {
+        Parser { tokens, pos: 0 }
     }
 
     // Look at the current token without advancing
@@ -268,6 +267,44 @@ impl Parser {
     // Are we at the end (Eof token)?
     fn at_end(&self) -> bool {
         matches!(self.peek(), Token::Eof)
+    }
+
+    fn parse_value(&mut self) -> Result<JsonValue, JsonError> {
+        match self.peek().clone() {
+            Token::Null => {
+                self.advance();
+                Ok(JsonValue::Null)
+            }
+            Token::Bool(b) => {
+                self.advance();
+                Ok(JsonValue::Bool(b))
+            }
+            Token::Number(n) => {
+                self.advance();
+                Ok(JsonValue::Number(n))
+            }
+            Token::String(s) => {
+                self.advance();
+                Ok(JsonValue::String(s))
+            }
+            Token::LeftBracket => {
+                todo!("parse array — Part 3c")
+            }
+            Token::LeftBrace => {
+                todo!("parse object — Part 3d")
+            }
+            other => Err(JsonError::ExpectedValue(other)),
+        }
+    }
+}
+
+fn parse(tokens: Vec<Token>) -> Result<JsonValue, JsonError> {
+    let mut parser = Parser::new(tokens);
+    let value = parser.parse_value()?;
+    if !parser.at_end() {
+        Err(JsonError::TrailingTokens(parser.peek().clone()))
+    } else {
+        Ok(value)
     }
 }
 
@@ -318,6 +355,18 @@ fn main() {
     println!("{:#?}", tokenize("[true, false, null]"));
     println!("{:#?}", tokenize("tru"));
     println!("{:#?}", tokenize("taco"));
+
+    let tokens = tokenize("{ }").unwrap();
+    let mut parser = Parser::new(tokens);
+
+    println!("peek: {:?}", parser.peek()); // LeftBrace
+    println!("advance: {:?}", parser.advance()); // LeftBrace
+    println!("peek: {:?}", parser.peek()); // RightBrace
+    println!("at_end: {}", parser.at_end()); // false
+
+    let result = parser.expect(&Token::RightBrace);
+    println!("expect: {:?}", result); // Ok(())
+    println!("at_end: {}", parser.at_end()); // true
 }
 
 // ============================================================

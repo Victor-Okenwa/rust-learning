@@ -39,4 +39,23 @@ fn main() {
         println!("name: {}", name);
     }
     println!("names: {:?}", names);
+
+    //  ----------------------------------------
+    // WHILE LET: this is a loop used together with match, it stops when the next value is None
+    let mut chars = "abc".chars();
+
+    while let Some(c) = chars.next() {
+        println!("{}", c); // prints a, b, c
+    }
+    // loop ends when chars.next() returns None
+
+    //  ----------------------------------------
+    // FOR LOOP with ENUMERATE: If you need both the index and the value
+    let friends = vec!["Alice", "Bob", "Charlie"];
+    for (i, friend) in friends.iter().enumerate() {
+        println!("{} is friend number {}", friend, i + 1);
+    }
+
+    let x = Some(5);
+    println!("x: {:?}", x.unwrap());
 }

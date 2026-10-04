@@ -142,7 +142,49 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
 
             // ---------- Number: 0-9 or '-' ----------
             '0'..='9' | '-' => {
-                todo!("number tokenizing — Part 2c")
+                let mut num_str = String::new();
+
+                // Consume the first character (- or a digit)
+                if let Some((_, c)) = chars.next() {
+                    num_str.push(c);
+                }
+
+                // Consume the rest: digits, at most one '.', optional 'e'/'E' with optional sign
+                let mut seen_dot = false;
+                let mut seen_exp = false;
+
+                while let Some(&(_, c)) = chars.peek() {
+                    match c {
+                        '0'..='9' => {
+                            num_str.push(c);
+                            chars.next();
+                        }
+                        '.' if !seen_dot && !seen_exp => {
+                            seen_dot = true;
+                            num_str.push(c);
+                            chars.next();
+                        }
+                        'e' | 'E' if !seen_exp => {
+                            seen_exp = true;
+                            num_str.push(c);
+                            chars.next();
+
+                            // Optional + or - after the exponent
+                            if let Some((_, sign)) = chars.next() {
+                                if sign == '+' || sign == '-' {
+                                    num_str.push(sign);
+                                    chars.next();
+                                }
+                            }
+                        }
+                        _ => break, // not part of this number
+                    }
+                }
+
+                match num_str.parse::<f64>() {
+                    Ok(num) => tokens.push(Token::Number(num)),
+                    Err(_) => return Err(JsonError::InvalidNumber(num_str)),
+                }
             }
 
             // ---------- Keywords: true, false, null ----------
@@ -192,4 +234,11 @@ fn main() {
         "tokenize(\"unterminated\"): {:#?}",
         tokenize("\"unterminated")
     );
+
+    println!("{:#?}", tokenize("42"));
+    println!("{:#?}", tokenize("-17"));
+    println!("{:#?}", tokenize("3.14"));
+    println!("{:#?}", tokenize("1e10"));
+    println!("{:#?}", tokenize("2.5e-3"));
+    println!("{:#?}", tokenize("[1, 2, 3]"));
 }

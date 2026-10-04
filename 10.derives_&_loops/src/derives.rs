@@ -27,7 +27,7 @@ enum Color {
     Red,
     Green,
     Blue,
-    Custom(u8, u8, u8),   // carries three bytes (R, G, B)
+    Custom(u8, u8, u8), // carries three bytes (R, G, B)
 }
 
 // ============================================================
@@ -39,8 +39,8 @@ enum Color {
 
 #[derive(Debug, Clone)]
 struct Message {
-    text: String,      // String owns heap data, so cloning copies it
-    priority: i32,     // simple, cheap to copy
+    text: String,  // String owns heap data, so cloning copies it
+    priority: i32, // simple, cheap to copy
 }
 
 // ============================================================
@@ -134,27 +134,27 @@ fn main() {
         text: String::from("hello"),
         priority: 1,
     };
-    let copy = original.clone();       // deep copy
-    println!("original: {:?}", original);  // original is still alive
+    let copy = original.clone(); // deep copy
+    println!("original: {:?}", original); // original is still alive
     println!("copy:     {:?}", copy);
 
-      // ---------- Copy ----------
+    // ---------- Copy ----------
     let a = Coordinates { lat: 6.5, lng: 3.4 };
-    let b = a;   // Copy happens implicitly — no .clone() needed
-    println!("a = {:?}, b = {:?}", a, b);  // both alive, both usable
+    let b = a; // Copy happens implicitly — no .clone() needed
+    println!("a = {:?}, b = {:?}", a, b); // both alive, both usable
 
     // ---------- PartialEq ----------
     let v1 = Version { major: 1, minor: 0 };
     let v2 = Version { major: 1, minor: 0 };
     let v3 = Version { major: 2, minor: 0 };
-    println!("v1 == v2: {}", v1 == v2);   // true
-    println!("v1 == v3: {}", v1 == v3);   // false
+    println!("v1 == v2: {}", v1 == v2); // true
+    println!("v1 == v3: {}", v1 == v3); // false
 
     // ---------- PartialOrd / Ord ----------
     let s1 = Score { points: 10 };
     let s2 = Score { points: 20 };
-    println!("s1 < s2: {}", s1 < s2);     // true
-    println!("s2 > s1: {}", s2 > s1);     // true
+    println!("s1 < s2: {}", s1 < s2); // true
+    println!("s2 > s1: {}", s2 > s1); // true
 
     // You can even sort them:
     let mut scores = vec![
@@ -162,7 +162,7 @@ fn main() {
         Score { points: 10 },
         Score { points: 20 },
     ];
-    scores.sort();   // uses Ord
+    scores.sort(); // uses Ord
     println!("sorted: {:?}", scores);
 
     // ---------- Hash ----------
@@ -179,8 +179,7 @@ fn main() {
     // You can also override individual fields:
     let custom_settings = Settings {
         volume: 50,
-        ..Default::default()   // "fill the rest from default"
+        ..Default::default() // "fill the rest from default"
     };
     println!("custom:   {:?}", custom_settings);
-
 }

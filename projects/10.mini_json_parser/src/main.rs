@@ -56,6 +56,7 @@ enum JsonError {
     UnexpectedEnd,               // input ended too soon
     InvalidNumber(String),       // e.g. "12.34.56"
     InvalidKeyword(String),      // e.g. "truee"
+    UnexpectedToken { expected: Token, found: Token }, // e.g. expected LeftBrace, got RightBrace
 }
 
 // ============================================================
@@ -252,7 +253,22 @@ impl Parser {
     }
 
     // Consume the current token if it matches, else error
-    
+    fn expect(&mut self, expected: &Token) -> Result<(), JsonError> {
+        if self.peek() == expected {
+            self.pos += 1;
+            Ok(())
+        } else {
+            Err(JsonError::UnexpectedToken {
+                expected: self.peek().clone(),
+                found: self.peek().clone(),
+            })
+        }
+    }
+
+    // Are we at the end (Eof token)?
+    fn at_end(&self) -> bool {
+        matches!(self.peek(), Token::Eof)
+    }
 }
 
 fn main() {

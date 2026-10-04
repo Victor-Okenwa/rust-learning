@@ -36,7 +36,7 @@ enum Token {
     Comma,
     String(String),
     Number(f64),
-    Boolean(bool),
+    Bool(bool),
     Null,
     Eof,
 }
@@ -55,6 +55,7 @@ enum JsonError {
     UnexpectedChar(char, usize), // bad character + byte position
     UnexpectedEnd,               // input ended too soon
     InvalidNumber(String),       // e.g. "12.34.56"
+    InvalidKeyword(String),      // e.g. "truee"
 }
 
 // ============================================================
@@ -189,7 +190,24 @@ fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
 
             // ---------- Keywords: true, false, null ----------
             't' | 'f' | 'n' => {
-                todo!("keyword tokenizing — Part 2d")
+                // Consume the entire word (letters only)
+                let mut word = String::new();
+
+                while let Some(&(_, c)) = chars.peek() {
+                    if c.is_ascii_alphabetic() {
+                        word.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+
+                match word.as_str() {
+                    "true" => tokens.push(Token::Bool(true)),
+                    "false" => tokens.push(Token::Bool(false)),
+                    "null" => tokens.push(Token::Null),
+                    other => return Err(JsonError::InvalidKeyword(other.to_string())),
+                }
             }
 
             // ---------- Anything else is an error ----------
@@ -221,24 +239,226 @@ fn main() {
     // let result2 = tokenize("{ @");
     // println!("{:#?}", result2);
 
-    println!("tokenize(\"hello\"): {:#?}", tokenize("\"hello\""));
-    println!(
-        "tokenize(\"hello\\nworld\"): {:#?}",
-        tokenize("\"hello\\nworld\"")
-    );
-    println!(
-        "tokenize(\"quote: \\\"hi\\\"\"): {:#?}",
-        tokenize("\"quote: \\\"hi\\\"\"")
-    );
-    println!(
-        "tokenize(\"unterminated\"): {:#?}",
-        tokenize("\"unterminated")
-    );
+    // println!("tokenize(\"hello\"): {:#?}", tokenize("\"hello\""));
+    // println!(
+    //     "tokenize(\"hello\\nworld\"): {:#?}",
+    //     tokenize("\"hello\\nworld\"")
+    // );
+    // println!(
+    //     "tokenize(\"quote: \\\"hi\\\"\"): {:#?}",
+    //     tokenize("\"quote: \\\"hi\\\"\"")
+    // );
+    // println!(
+    //     "tokenize(\"unterminated\"): {:#?}",
+    //     tokenize("\"unterminated")
+    // );
 
-    println!("{:#?}", tokenize("42"));
-    println!("{:#?}", tokenize("-17"));
-    println!("{:#?}", tokenize("3.14"));
-    println!("{:#?}", tokenize("1e10"));
-    println!("{:#?}", tokenize("2.5e-3"));
-    println!("{:#?}", tokenize("[1, 2, 3]"));
+    // println!("{:#?}", tokenize("42"));
+    // println!("{:#?}", tokenize("-17"));
+    // println!("{:#?}", tokenize("3.14"));
+    // println!("{:#?}", tokenize("1e10"));
+    // println!("{:#?}", tokenize("2.5e-3"));
+    // println!("{:#?}", tokenize("[1, 2, 3]"));
+
+    println!("{:#?}", tokenize("true"));
+    println!("{:#?}", tokenize("false"));
+    println!("{:#?}", tokenize("null"));
+    println!("{:#?}", tokenize("[true, false, null]"));
+    println!("{:#?}", tokenize("tru"));
+    println!("{:#?}", tokenize("taco"));
+}
+
+// ============================================================
+// TESTS
+// ============================================================
+// The `#[cfg(test)]` attribute tells the compiler: "only compile
+// this module when running `cargo test`, not for regular builds."
+//
+// The `mod tests` wraps everything in a private module — a
+// common Rust convention so tests don't pollute the main scope.
+#[cfg(test)]
+mod tests {
+    use super::*; // brings all public items from the outer module into scope
+
+    // ---------- Punctuation ----------
+
+    #[test]
+    fn empty_braces() {
+        assert_eq!(
+            tokenize("{}"),
+            Ok(vec![Token::LeftBrace, Token::RightBrace, Token::Eof])
+        )
+    }
+
+    #[test]
+    fn empty_brackets {
+        assert_eq!(
+            tokenize("[]"),
+            Ok(vec![Token::LeftBracket, Token::RightBracket, Token::Eof])
+        )
+    }
+
+    #[test]
+    fn colon_and_comma() {
+        assert_eq!(
+            tokenize(":, ,:"),
+            Ok(vec![
+                Token::Colon, Token::Comma, Token::Comma, Token::Colon, Token::Eof
+            ])
+        );
+    }
+
+    // ---------- Whitespace ----------
+    fn whitespace_is_skipped() {
+        assert_eq!(
+            tokenize("      {  \n\t  }      "),
+            Ok(vec![Token::LeftBrace, Token::RightBrace, Token::Eof])
+        )
+    }
+
+    // ---------- Strings ----------
+    #[test]
+    fn simple_string() { 
+        assert_eq!(
+            tokenize("\"hello\""),
+            Ok(vec![Token::String("hello".to_string()), Token::Eof])
+        )
+    }
+
+    #[test]
+    fn empty_string() {
+        assert_eq!(
+            tokenize("\"\""),
+            Ok(vec![Token::String(String::new()), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn string_with_escapes() {
+        assert_eq!(
+            tokenize("\"a\\nb\\tc\""),
+            Ok(vec![Token::String("a\nb\tc".to_string()), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn string_with_escaped_quote() {
+        assert_eq!(
+            tokenize("\"she said \\\"hi\\\"\""),
+            Ok(vec![
+                Token::String("she said \"hi\"".to_string()),
+                Token::Eof
+            ])
+        );
+    }
+
+    #[test]
+    fn unterminated_string() {
+        assert_eq!(tokenize("\"hello"), Err(JsonError::UnexpectedEnd));
+    }
+
+    // ---------- Numbers ----------
+
+    #[test]
+    fn integer() {
+        assert_eq!(
+            tokenize("42"),
+            Ok(vec![Token::Number(42.0), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn negative_integer() {
+        assert_eq!(
+            tokenize("-17"),
+            Ok(vec![Token::Number(-17.0), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn decimal() {
+        assert_eq!(
+            tokenize("3.14"),
+            Ok(vec![Token::Number(3.14), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn exponent() {
+        assert_eq!(
+            tokenize("1e10"),
+            Ok(vec![Token::Number(1e10), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn negative_exponent() {
+        assert_eq!(
+            tokenize("2.5e-3"),
+            Ok(vec![Token::Number(2.5e-3), Token::Eof])
+        );
+    }
+
+    // ---------- Keywords ----------
+
+    #[test]
+    fn keyword_true() {
+        assert_eq!(
+            tokenize("true"),
+            Ok(vec![Token::Bool(true), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn keyword_false() {
+        assert_eq!(
+            tokenize("false"),
+            Ok(vec![Token::Bool(false), Token::Eof])
+        );
+    }
+
+    #[test]
+    fn keyword_null() {
+        assert_eq!(
+            tokenize("null"),
+            Ok(vec![Token::Null, Token::Eof])
+        );
+    }
+
+    #[test]
+    fn invalid_keyword() {
+        assert_eq!(
+            tokenize("taco"),
+            Err(JsonError::InvalidKeyword("taco".to_string()))
+        );
+    }
+
+    // ---------- Errors ----------
+
+    #[test]
+    fn unexpected_char() {
+        assert_eq!(
+            tokenize("@"),
+            Err(JsonError::UnexpectedChar('@', 0))
+        );
+    }
+
+    // ---------- A combined case ----------
+
+    #[test]
+    fn array_of_mixed_values() {
+        assert_eq!(
+            tokenize("[true, 42, \"hi\"]"),
+            Ok(vec![
+                Token::LeftBracket,
+                Token::Bool(true),
+                Token::Comma,
+                Token::Number(42.0),
+                Token::Comma,
+                Token::String("hi".to_string()),
+                Token::RightBracket,
+                Token::Eof,
+            ])
+        );
+    }
 }

@@ -269,6 +269,7 @@ impl Parser {
         matches!(self.peek(), Token::Eof)
     }
 
+    // Parse a single JSON value (Null, Boolean, Number, String, Array, Object)
     fn parse_value(&mut self) -> Result<JsonValue, JsonError> {
         match self.peek().clone() {
             Token::Null => {
@@ -277,7 +278,7 @@ impl Parser {
             }
             Token::Bool(b) => {
                 self.advance();
-                Ok(JsonValue::Bool(b))
+                Ok(JsonValue::Boolean(b))
             }
             Token::Number(n) => {
                 self.advance();
@@ -367,6 +368,15 @@ fn main() {
     let result = parser.expect(&Token::RightBrace);
     println!("expect: {:?}", result); // Ok(())
     println!("at_end: {}", parser.at_end()); // true
+
+    println!("{:#?}", parse(tokenize("42").unwrap()));
+    println!("{:#?}", parse(tokenize("true").unwrap()));
+    println!("{:#?}", parse(tokenize("null").unwrap()));
+    println!("{:#?}", parse(tokenize("\"hello\"").unwrap()));
+
+    // Error cases
+    println!("{:#?}", parse(tokenize("").unwrap())); // empty — Eof is not a value
+    println!("{:#?}", parse(tokenize("42 43").unwrap())); // trailing
 }
 
 // ============================================================

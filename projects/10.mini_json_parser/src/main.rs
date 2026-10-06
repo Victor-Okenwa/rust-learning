@@ -418,6 +418,82 @@ fn to_string(value: &JsonValue) -> String {
     out
 }
 
+fn to_pretty_string(value: &JsonValue) -> String {
+    let mut out: String = String::new();
+    write_value_pretty(value, &mut out, 0);
+    out
+}
+
+// `level` is how deeply nested we are (0 = top level).
+fn write_value_pretty(value: &JsonValue, out: &mut String, level: usize) {
+    match value {
+        JsonValue::Null => out.push_str("null"),
+        JsonValue::Bool(true) => out.push_str("true"),
+        JsonValue::Bool(false) => out.push_str("false"),
+        JsonValue::Number(n) => out.push_str(&format!("{}", n)),
+        JsonValue::String(s) => write_string(s, out),
+        JsonValue::Array(items) => write_array_pretty(items, out, level),
+        JsonValue::Object(map) => write_object_pretty(map, out, level),
+    }
+}
+
+// Write `level + 1` levels of indentation (4 spaces per level).
+fn write_indent(out: &mut String, level: usize) {
+    for _ in 0..level {
+        out.push_str("  "); // 2 spaces per level
+    }
+}
+
+fn write_array_pretty(items: &[JsonValue], out: &mut String, level: usize) {
+    // Empty array: write `[]` with no newlines
+    if items.is_empty() {
+        out.push_str("[]");
+        return;
+    }
+
+    out.push('[');
+    out.push('\n');
+
+    for (i, item) in items.iter().enumerate() {
+        write_indent(out, level + 1);
+        write_value_pretty(item, out, level + 1);
+        if i + 1 < items.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+
+    write_indent(out, level);
+    out.push(']');
+}
+
+fn write_object_pretty(map: &HashMap<String, JsonValue>, out: &mut String, level: usize) {
+    if map.is_empty() {
+        out.push_str("{}");
+        return;
+    }
+
+    out.push('{');
+    out.push('\n');
+
+    let mut keys: Vec<&String> = map.keys().collect();
+    keys.sort();
+
+    for (i, key) in keys.iter().enumerate() {
+        write_indent(out, level + 1);
+        write_string(key, out);
+        out.push_str(": ");
+        write_value_pretty(&map[*key], out, level + 1);
+        if i + 1 < keys.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+
+    write_indent(out, level);
+    out.push('}');
+}
+
 // The recursive worker. Takes a `&mut String` to append to.
 fn write_value(value: &JsonValue, out: &mut String) {
     match value {
@@ -485,9 +561,12 @@ fn write_object(map: &HashMap<String, JsonValue>, out: &mut String) {
 fn main() {
     let input = "{\"name\": \"nervos\", \"count\": 42, \"tags\": [\"rust\", \"ckb\"]}";
     let parsed = parse(tokenize(input).unwrap()).unwrap();
-    let serialized = to_string(&parsed);
 
-    println!("{}", serialized);
+    println!("--- compact ---");
+    println!("{}", to_string(&parsed));
+
+    println!("\n--- pretty ---");
+    println!("{}", to_pretty_string(&parsed));
 
     let json = JsonValue::Object(HashMap::from([
         ("name".to_string(), JsonValue::String("nervos".to_string())),

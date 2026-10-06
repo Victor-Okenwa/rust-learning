@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Debug, PartialEq)]
 enum JsonValue {
     Null,
-    Boolean(bool),
+    Bool(bool),
     Number(f64),
     String(String),
     Array(Vec<JsonValue>),
@@ -278,7 +278,7 @@ impl Parser {
             }
             Token::Bool(b) => {
                 self.advance();
-                Ok(JsonValue::Boolean(b))
+                Ok(JsonValue::Bool(b))
             }
             Token::Number(n) => {
                 self.advance();
@@ -412,7 +412,7 @@ fn main() {
     let json = JsonValue::Object(HashMap::from([
         ("name".to_string(), JsonValue::String("nervos".to_string())),
         ("count".to_string(), JsonValue::Number(42.0)),
-        ("active".to_string(), JsonValue::Boolean(true)),
+        ("active".to_string(), JsonValue::Bool(true)),
     ]));
     println!("{:#?}", json);
 
@@ -485,6 +485,20 @@ fn main() {
     // Errors
     println!("{:#?}", parse(tokenize("[1,]").unwrap())); // trailing comma
     println!("{:#?}", parse(tokenize("[1 2]").unwrap())); // missing comma
+
+    println!("{:#?}", parse(tokenize("{}").unwrap()));
+    println!("{:#?}", parse(tokenize("{\"a\": 1}").unwrap()));
+    println!("{:#?}", parse(tokenize("{\"a\": 1, \"b\": 2}").unwrap()));
+    println!(
+        "{:#?}",
+        parse(tokenize("{\"nested\": {\"x\": [1, 2]}}").unwrap())
+    );
+
+    // Errors
+    println!("{:#?}", parse(tokenize("{1: 2}").unwrap())); // non-string key
+    println!("{:#?}", parse(tokenize("{\"a\" 1}").unwrap())); // missing colon
+    println!("{:#?}", parse(tokenize("{\"a\": 1 \"b\": 2}").unwrap())); // missing comma
+    println!("{:#?}", parse(tokenize("{\"a\": }").unwrap()));
 }
 
 // ============================================================
@@ -660,5 +674,172 @@ mod tests {
                 Token::Eof,
             ])
         );
+    }
+
+    // ============================================================
+    // PARSER TESTS
+    // ============================================================
+    // Helper: tokenize + parse in one step, panicking on tokenizer error
+    fn p(input: &str) -> Result<JsonValue, JsonError> {
+        parse(tokenize(input).unwrap())
+    }
+
+    // ---------- Simple values ----------
+
+    #[test]
+    fn parse_null() {
+        assert_eq!(p("null"), Ok(JsonValue::Null));
+    }
+
+    #[test]
+    fn parse_true() {
+        assert_eq!(p("true"), Ok(JsonValue::Bool(true)));
+    }
+
+    #[test]
+    fn parse_false() {
+        assert_eq!(p("false"), Ok(JsonValue::Bool(false)));
+    }
+
+    #[test]
+    fn parse_number() {
+        assert_eq!(p("42"), Ok(JsonValue::Number(42.0)));
+    }
+
+    #[test]
+    fn parse_string() {
+        assert_eq!(p("\"hello\""), Ok(JsonValue::String("hello".to_string())));
+    }
+
+    // ---------- Empty collections ----------
+
+    #[test]
+    fn parse_empty_array() {
+        assert_eq!(p("[]"), Ok(JsonValue::Array(vec![])));
+    }
+
+    #[test]
+    fn parse_empty_object() {
+        assert_eq!(p("{}"), Ok(JsonValue::Object(HashMap::new())));
+    }
+
+    // ---------- Arrays ----------
+
+    #[test]
+    fn parse_simple_array() {
+        assert_eq!(
+            p("[1, 2, 3]"),
+            Ok(JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ]))
+        );
+    }
+
+    #[test]
+    fn parse_mixed_array() {
+        assert_eq!(
+            p("[true, null, \"hi\"]"),
+            Ok(JsonValue::Array(vec![
+                JsonValue::Bool(true),
+                JsonValue::Null,
+                JsonValue::String("hi".to_string()),
+            ]))
+        );
+    }
+
+    #[test]
+    fn parse_nested_array() {
+        assert_eq!(
+            p("[[1, 2], [3, 4]]"),
+            Ok(JsonValue::Array(vec![
+                JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0),]),
+                JsonValue::Array(vec![JsonValue::Number(3.0), JsonValue::Number(4.0),]),
+            ]))
+        );
+    }
+
+    // ---------- Objects ----------
+
+    #[test]
+    fn parse_simple_object() {
+        let mut expected = HashMap::new();
+        expected.insert("a".to_string(), JsonValue::Number(1.0));
+
+        assert_eq!(p("{\"a\": 1}"), Ok(JsonValue::Object(expected)));
+    }
+
+    #[test]
+    fn parse_object_with_multiple_keys() {
+        let mut expected = HashMap::new();
+        expected.insert("a".to_string(), JsonValue::Number(1.0));
+        expected.insert("b".to_string(), JsonValue::Bool(true));
+
+        assert_eq!(
+            p("{\"a\": 1, \"b\": true}"),
+            Ok(JsonValue::Object(expected))
+        );
+    }
+
+    #[test]
+    fn parse_nested_object() {
+        let mut inner = HashMap::new();
+        inner.insert(
+            "x".to_string(),
+            JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]),
+        );
+
+        let mut outer = HashMap::new();
+        outer.insert("nested".to_string(), JsonValue::Object(inner));
+
+        assert_eq!(
+            p("{\"nested\": {\"x\": [1, 2]}}"),
+            Ok(JsonValue::Object(outer))
+        );
+    }
+
+    // ---------- Error cases ----------
+
+    #[test]
+    fn parse_empty_input_errors() {
+        assert_eq!(p(""), Err(JsonError::ExpectedValue(Token::Eof)));
+    }
+
+    #[test]
+    fn parse_trailing_tokens_errors() {
+        assert_eq!(
+            p("42 43"),
+            Err(JsonError::TrailingTokens(Token::Number(43.0)))
+        );
+    }
+
+    #[test]
+    fn parse_unclosed_array_errors() {
+        assert!(matches!(p("[1"), Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn parse_unclosed_object_errors() {
+        assert!(matches!(
+            p("{\"a\": 1"),
+            Err(JsonError::UnexpectedToken { .. })
+        ));
+    }
+
+    #[test]
+    fn parse_non_string_key_errors() {
+        assert!(matches!(
+            p("{1: 2}"),
+            Err(JsonError::UnexpectedToken { .. })
+        ));
+    }
+
+    #[test]
+    fn parse_missing_colon_errors() {
+        assert!(matches!(
+            p("{\"a\" 1}"),
+            Err(JsonError::UnexpectedToken { .. })
+        ));
     }
 }

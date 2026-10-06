@@ -288,14 +288,113 @@ impl Parser {
                 self.advance();
                 Ok(JsonValue::String(s))
             }
-            Token::LeftBracket => {
-                todo!("parse array — Part 3c")
-            }
-            Token::LeftBrace => {
-                todo!("parse object — Part 3d")
-            }
+            Token::LeftBracket => self.parse_array(),
+            Token::LeftBrace => self.parse_object(),
             other => Err(JsonError::ExpectedValue(other)),
         }
+    }
+
+    // Parse an array: [value, value, ...]
+    fn parse_array(&mut self) -> Result<JsonValue, JsonError> {
+        self.advance(); // consume '['
+
+        let mut items = Vec::new();
+        // Empty Array
+        if matches!(self.peek(), Token::RightBracket) {
+            self.advance();
+            return Ok(JsonValue::Array(items));
+        }
+
+        loop {
+            // Parse one value (recursion!)
+            let value = self.parse_value()?;
+            items.push(value);
+
+            // After a value, the next token must be ',' or ']'
+            match self.peek() {
+                Token::Comma => {
+                    self.advance();
+                }
+
+                Token::RightBracket => {
+                    self.advance();
+                    break;
+                }
+
+                other => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: Token::Comma, // or ']'
+                        found: other.clone(),
+                    });
+                }
+            }
+        }
+
+        Ok(JsonValue::Array(items))
+    }
+
+    fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
+        self.advance(); // consume '{'
+
+        let mut map = HashMap::new();
+
+        // Empty Object
+        if matches!(self.peek(), Token::RightBrace) {
+            self.advance();
+            return Ok(JsonValue::Object(map));
+        }
+
+        loop {
+            // --- Parse the key ---
+            let key = match self.peek().clone() {
+                Token::String(s) => {
+                    self.advance();
+                    s
+                }
+                other => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: Token::String(String::new()),
+                        found: other,
+                    });
+                }
+            };
+
+            // --- Expect a colon ---
+            match self.peek() {
+                Token::Colon => {
+                    self.advance();
+                }
+                other => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: Token::Colon,
+                        found: other.clone(),
+                    });
+                }
+            }
+
+            // --- Parse the value (recursion again!) ---
+            let value = self.parse_value()?;
+            map.insert(key, value);
+
+            // --- After a value, the next token must be ',' or '}' ---
+
+            match self.peek() {
+                Token::Comma => {
+                    self.advance();
+                }
+                Token::RightBrace => {
+                    self.advance();
+                    break;
+                }
+                other => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: Token::Comma,
+                        found: other.clone(),
+                    });
+                }
+            }
+        }
+        Ok(JsonValue::Object(map))
     }
 }
 
@@ -377,6 +476,15 @@ fn main() {
     // Error cases
     println!("{:#?}", parse(tokenize("").unwrap())); // empty — Eof is not a value
     println!("{:#?}", parse(tokenize("42 43").unwrap())); // trailing
+
+    println!("{:#?}", parse(tokenize("[]").unwrap()));
+    println!("{:#?}", parse(tokenize("[1, 2, 3]").unwrap()));
+    println!("{:#?}", parse(tokenize("[true, null, \"hi\"]").unwrap()));
+    println!("{:#?}", parse(tokenize("[[1, 2], [3, 4]]").unwrap())); // nested!
+
+    // Errors
+    println!("{:#?}", parse(tokenize("[1,]").unwrap())); // trailing comma
+    println!("{:#?}", parse(tokenize("[1 2]").unwrap())); // missing comma
 }
 
 // ============================================================

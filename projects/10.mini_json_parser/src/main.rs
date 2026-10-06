@@ -408,7 +408,87 @@ fn parse(tokens: Vec<Token>) -> Result<JsonValue, JsonError> {
     }
 }
 
+// ============================================================
+// to_string: serializes a JsonValue back into a JSON string
+// ============================================================
+// No Result needed — every JsonValue has a valid string form.
+fn to_string(value: &JsonValue) -> String {
+    let mut out = String::new();
+    write_value(value, &mut out);
+    out
+}
+
+// The recursive worker. Takes a `&mut String` to append to.
+fn write_value(value: &JsonValue, out: &mut String) {
+    match value {
+        JsonValue::Null => out.push_str("null"),
+        JsonValue::Bool(true) => out.push_str("true"),
+        JsonValue::Bool(false) => out.push_str("false"),
+        JsonValue::Number(n) => out.push_str(&format!("{}", n)),
+        JsonValue::String(s) => write_string(s, out),
+        JsonValue::Array(items) => write_array(items, out),
+        JsonValue::Object(map) => write_object(map, out),
+    }
+}
+
+// Escape a string and write it surrounded by quotes.
+fn write_string(s: &str, out: &mut String) {
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{0008}' => out.push_str("\\b"),
+            '\u{000C}' => out.push_str("\\f"),
+            // Other control chars must be escaped with \uXXXX
+            c if (c as u32) < 0x20 => {
+                out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+}
+
+fn write_array(items: &[JsonValue], out: &mut String) {
+    out.push('[');
+    for (i, item) in items.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        write_value(item, out);
+    }
+    out.push(']');
+}
+
+fn write_object(map: &HashMap<String, JsonValue>, out: &mut String) {
+    out.push('{');
+
+    // Sort keys so output is deterministic (HashMap is unordered)
+    let mut keys: Vec<&String> = map.keys().collect();
+    keys.sort();
+
+    for (i, key) in keys.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        write_string(key, out);
+        out.push(':');
+        write_value(&map[*key], out);
+    }
+    out.push('}');
+}
+
 fn main() {
+    let input = "{\"name\": \"nervos\", \"count\": 42, \"tags\": [\"rust\", \"ckb\"]}";
+    let parsed = parse(tokenize(input).unwrap()).unwrap();
+    let serialized = to_string(&parsed);
+
+    println!("{}", serialized);
+
     let json = JsonValue::Object(HashMap::from([
         ("name".to_string(), JsonValue::String("nervos".to_string())),
         ("count".to_string(), JsonValue::Number(42.0)),

@@ -255,19 +255,6 @@ impl Parser {
         tok
     }
 
-    // Consume the current token if it matches, else error
-    fn expect(&mut self, expected: &Token) -> Result<(), JsonError> {
-        if self.peek() == expected {
-            self.pos += 1;
-            Ok(())
-        } else {
-            Err(JsonError::UnexpectedToken {
-                expected: self.peek().clone(),
-                found: self.peek().clone(),
-            })
-        }
-    }
-
     // Are we at the end (Eof token)?
     fn at_end(&self) -> bool {
         matches!(self.peek(), Token::Eof)
@@ -973,4 +960,11 @@ mod tests {
             Err(JsonError::UnexpectedToken { .. })
         ));
     }
+
+    // #[test]
+    // fn check_args_cli() {
+    //     assert!(matches!(
+    //         p()
+    //     ))
+    // }
 }

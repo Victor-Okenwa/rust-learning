@@ -1,4 +1,8 @@
 use std::collections::HashMap;
+use std::env;
+use std::fs;
+use std::io::{self, Read};
+use std::process;
 
 // ============================================================
 // JsonValue: the "target" type — what a parsed JSON becomes
@@ -559,105 +563,73 @@ fn write_object(map: &HashMap<String, JsonValue>, out: &mut String) {
 }
 
 fn main() {
-    let input = "{\"name\": \"nervos\", \"count\": 42, \"tags\": [\"rust\", \"ckb\"]}";
-    let parsed = parse(tokenize(input).unwrap()).unwrap();
+    // collect args: [program_name, arg1, arg2, ...]
+    let args: Vec<String> = env::args().collect();
 
-    println!("--- compact ---");
-    println!("{}", to_string(&parsed));
+    // Parse the flags: --pretty anywhere, and treat any non-flag as a path.
+    let mut pretty = false;
+    let mut path: Option<String> = None;
 
-    println!("\n--- pretty ---");
-    println!("{}", to_pretty_string(&parsed));
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "--pretty" => pretty = true,
+            other if other.starts_with("--") => {
+                eprintln!("Unknown flag: {}", other);
+                process::exit(1);
+            }
+            other => {
+                if path.is_some() {
+                    eprintln!("Only one file path is allowed");
+                    process::exit(1);
+                }
+                path = Some(other.to_string());
+            }
+        }
+    }
 
-    let json = JsonValue::Object(HashMap::from([
-        ("name".to_string(), JsonValue::String("nervos".to_string())),
-        ("count".to_string(), JsonValue::Number(42.0)),
-        ("active".to_string(), JsonValue::Bool(true)),
-    ]));
-    println!("{:#?}", json);
+    // Read the input — from file if a path was given, otherwise from stdin.
+    let input = match path {
+        Some(p) => match fs::read_to_string(&p) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("Error reading {}: {}", p, e);
+                process::exit(1);
+            }
+        },
+        None => {
+            let mut buf = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut buf) {
+                eprintln!("Failed to read stdin: {}", e);
+                process::exit(1);
+            }
+            buf
+        }
+    };
 
-    let sample_token = Token::LeftBrace;
-    println!("{:#?}", sample_token);
+    // Tokenize → parse → serialize.
+    let tokens = match tokenize(&input) {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            eprintln!("Error tokenizing input: {:?}", e);
+            process::exit(1);
+        }
+    };
 
-    let sample_error = JsonError::UnexpectedChar('@', 5);
-    println!("{:#?}", sample_error);
+    let value = match parse(tokens) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing input: {:?}", e);
+            process::exit(1);
+        }
+    };
 
-    let result = tokenize("{ }");
-    println!("{:#?}", result);
+    let output = if pretty {
+        to_pretty_string(&value)
+    } else {
+        to_string(&value)
+    };
 
-    // let result2 = tokenize("{ @");
-    // println!("{:#?}", result2);
-
-    // println!("tokenize(\"hello\"): {:#?}", tokenize("\"hello\""));
-    // println!(
-    //     "tokenize(\"hello\\nworld\"): {:#?}",
-    //     tokenize("\"hello\\nworld\"")
-    // );
-    // println!(
-    //     "tokenize(\"quote: \\\"hi\\\"\"): {:#?}",
-    //     tokenize("\"quote: \\\"hi\\\"\"")
-    // );
-    // println!(
-    //     "tokenize(\"unterminated\"): {:#?}",
-    //     tokenize("\"unterminated")
-    // );
-
-    // println!("{:#?}", tokenize("42"));
-    // println!("{:#?}", tokenize("-17"));
-    // println!("{:#?}", tokenize("3.14"));
-    // println!("{:#?}", tokenize("1e10"));
-    // println!("{:#?}", tokenize("2.5e-3"));
-    // println!("{:#?}", tokenize("[1, 2, 3]"));
-
-    println!("{:#?}", tokenize("true"));
-    println!("{:#?}", tokenize("false"));
-    println!("{:#?}", tokenize("null"));
-    println!("{:#?}", tokenize("[true, false, null]"));
-    println!("{:#?}", tokenize("tru"));
-    println!("{:#?}", tokenize("taco"));
-
-    let tokens = tokenize("{ }").unwrap();
-    let mut parser = Parser::new(tokens);
-
-    println!("peek: {:?}", parser.peek()); // LeftBrace
-    println!("advance: {:?}", parser.advance()); // LeftBrace
-    println!("peek: {:?}", parser.peek()); // RightBrace
-    println!("at_end: {}", parser.at_end()); // false
-
-    let result = parser.expect(&Token::RightBrace);
-    println!("expect: {:?}", result); // Ok(())
-    println!("at_end: {}", parser.at_end()); // true
-
-    println!("{:#?}", parse(tokenize("42").unwrap()));
-    println!("{:#?}", parse(tokenize("true").unwrap()));
-    println!("{:#?}", parse(tokenize("null").unwrap()));
-    println!("{:#?}", parse(tokenize("\"hello\"").unwrap()));
-
-    // Error cases
-    println!("{:#?}", parse(tokenize("").unwrap())); // empty — Eof is not a value
-    println!("{:#?}", parse(tokenize("42 43").unwrap())); // trailing
-
-    println!("{:#?}", parse(tokenize("[]").unwrap()));
-    println!("{:#?}", parse(tokenize("[1, 2, 3]").unwrap()));
-    println!("{:#?}", parse(tokenize("[true, null, \"hi\"]").unwrap()));
-    println!("{:#?}", parse(tokenize("[[1, 2], [3, 4]]").unwrap())); // nested!
-
-    // Errors
-    println!("{:#?}", parse(tokenize("[1,]").unwrap())); // trailing comma
-    println!("{:#?}", parse(tokenize("[1 2]").unwrap())); // missing comma
-
-    println!("{:#?}", parse(tokenize("{}").unwrap()));
-    println!("{:#?}", parse(tokenize("{\"a\": 1}").unwrap()));
-    println!("{:#?}", parse(tokenize("{\"a\": 1, \"b\": 2}").unwrap()));
-    println!(
-        "{:#?}",
-        parse(tokenize("{\"nested\": {\"x\": [1, 2]}}").unwrap())
-    );
-
-    // Errors
-    println!("{:#?}", parse(tokenize("{1: 2}").unwrap())); // non-string key
-    println!("{:#?}", parse(tokenize("{\"a\" 1}").unwrap())); // missing colon
-    println!("{:#?}", parse(tokenize("{\"a\": 1 \"b\": 2}").unwrap())); // missing comma
-    println!("{:#?}", parse(tokenize("{\"a\": }").unwrap()));
+    println!("{}", output);
 }
 
 // ============================================================

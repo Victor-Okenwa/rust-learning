@@ -66,6 +66,65 @@ enum JsonError {
 }
 
 // ============================================================
+// Convert a byte offset into a (line, column) pair.
+// Line and column are 1-indexed for humans.
+// ============================================================
+
+fn line_col_at(input: &str, byte_offset: usize) -> (usize, usize) {
+    let mut line = 1;
+    let mut col = 1;
+
+    for (i, c) in input.char_indices() {
+        if i >= byte_offset {
+            break;
+        }
+        if c == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    (line, col)
+}
+
+// ============================================================
+// Display a JsonError in a human-friendly way.
+// Takes the original input so it can compute line/column.
+// ============================================================
+
+fn display_error(err: &JsonError, input: &str) -> String {
+    match err {
+        JsonError::UnexpectedChar(c, pos) => {
+            let (line, col) = line_col_at(input, *pos);
+            format!(
+                "Unexpected character '{}' at line {}, column {}",
+                c, line, col
+            )
+        }
+        JsonError::UnexpectedEnd => "Unexpected end of input".to_string(),
+        JsonError::InvalidNumber(num) => {
+            format!("Invalid number: {}", num)
+        }
+        JsonError::InvalidKeyword(keyword) => {
+            format!("Invalid keyword: {}", keyword)
+        }
+        JsonError::UnexpectedToken { expected, found } => {
+            format!(
+                "Unexpected token: expected {:?}, found {:?}",
+                expected, found
+            )
+        }
+        JsonError::ExpectedValue(token) => {
+            format!("Expected value, found {:?}", token)
+        }
+        JsonError::TrailingTokens(token) => {
+            format!("Trailing tokens: {:?}", token)
+        }
+    }
+}
+
+// ============================================================
 // tokenize: turns a &str into a flat Vec<Token>
 // ============================================================
 // Returns Result because input can be malformed.
@@ -595,9 +654,9 @@ fn main() {
 
     // Tokenize → parse → serialize.
     let tokens = match tokenize(&input) {
-        Ok(tokens) => tokens,
+        Ok(t) => t,
         Err(e) => {
-            eprintln!("Error tokenizing input: {:?}", e);
+            eprintln!("Tokenize error: {:?}", display_error(&e, &input));
             process::exit(1);
         }
     };
@@ -605,7 +664,7 @@ fn main() {
     let value = match parse(tokens) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("Error parsing input: {:?}", e);
+            eprintln!("Error parsing input: {:?}", display_error(&e, &input));
             process::exit(1);
         }
     };
